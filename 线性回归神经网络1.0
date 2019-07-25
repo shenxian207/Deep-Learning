@@ -1,0 +1,48 @@
+import tensorflow as tf
+import numpy as np
+import matplotlib.pyplot as plt
+
+#线性回归
+
+x_data=np.linspace(-0.5,0.5,200)[:,np.newaxis] #np.newaxis相当于给数据增加了一个维度
+noise=np.random.normal(0,0.02,x_data.shape)  #产生噪点，提高泛化程度
+y_data=np.square(x_data)+noise
+
+#定义placeholder
+x=tf.placeholder(tf.float32,[None,1])   #placeholder的参数？
+y=tf.placeholder(tf.float32,[None,1])
+
+#构建神经网络中间层
+weights_l1=tf.Variable(tf.random_normal([1,10])) #连接数据和中间层，normal（input，output）
+biases_l1=tf.Variable(tf.zeros([1,10]))
+Wx_plus_b_l1=tf.matmul(x,weights_l1)+biases_l1  #预测函数
+
+l1=tf.nn.tanh(Wx_plus_b_l1)  #激活函数
+
+#构建输出层，      
+weights_l2=tf.Variable(tf.random.normal([10,1])) #连接数据和中间层，normal（input，output）
+biases_l2=tf.Variable(tf.zeros([1,1]))
+Wx_plus_b_l2=tf.matmul(l1,weights_l2)+biases_l2
+
+prediction=tf.nn.tanh(Wx_plus_b_l2)  #激活函数，得到预测值
+
+#二次代价函数
+loss=tf.reduce_mean(tf.square(y-prediction))
+#使用梯度下降法进行训练
+train_step=tf.train.GradientDescentOptimizer(0.5).minimize(loss)
+
+init=tf.global_variables_initializer()
+with tf.Session() as sess:
+    sess.run(init)
+    for step in range(200):
+        sess.run(train_step,feed_dict={x:x_data,y:y_data})
+
+        prediction_value=sess.run(prediction,feed_dict={x:x_data})  #输出预测值
+        if step%10 == 0:
+            print(prediction_value)
+
+#可视化
+plt.figure()
+plt.scatter(x_data,y_data)
+plt.plot(x_data,prediction_value,'r-',lw=5)
+plt.show()
