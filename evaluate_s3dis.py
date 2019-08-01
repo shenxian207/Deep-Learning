@@ -54,3 +54,5 @@ print("Mean IoU         : %3.2f %%\n" % (100 * np.mean(ConfusionMatrix.get_inter
 print("     Classe :  mIoU")
 for c in range(0,C.number_of_labels):
     print ("   %8s : %6.2f %%" %(class_map[c],100*ConfusionMatrix.get_intersection_union_per_class(C)[c]))
+    
+    
