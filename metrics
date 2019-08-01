@@ -1,0 +1,120 @@
+from __future__ import division
+from __future__ import print_function
+from builtins import range
+
+import numpy as np
+#metrics库是一个对矩阵值进行相关处理的库
+
+# extended official code from http://www.semantic3d.net/scripts/metric.py
+class ConfusionMatrix:
+  """Streaming interface to allow for any source of predictions.
+  Initialize it, count predictions one by one,
+   then print confusion matrix and intersection-union score"""
+   
+#流式界面允许任何预测源。初始化它，逐个计算预测，然后打印混淆矩阵和交叉联合分数
+  # 建立2x2矩阵，给定初始值
+  def __init__(self, number_of_labels = 2):
+    self.number_of_labels = number_of_labels
+    self.confusion_matrix = np.zeros(shape=(self.number_of_labels,self.number_of_labels))
+  #建立混淆矩阵，ground_truth基础事实，matrix[g_t][p]=1
+  def count_predicted(self, ground_truth, predicted, number_of_added_elements=1):
+    self.confusion_matrix[ground_truth][predicted] += number_of_added_elements
+  
+  def count_predicted_batch(self, ground_truth_vec, predicted): # added
+    for i in range(ground_truth_vec.shape[0]):
+      self.confusion_matrix[:,predicted[i]] += ground_truth_vec[i,:]
+
+  """labels are integers from 0 to number_of_labels-1"""
+#标签是从0到number_of_labels-1的整数
+  def get_count(self, ground_truth, predicted):
+    return self.confusion_matrix[ground_truth][predicted]
+#返回整数列表；用它作为结果[ground_truth][predicted],来知道有多少类的ground_truth样本被报告为类predicted
+  """returns list of lists of integers; use it as result[ground_truth][predicted]
+     to know how many samples of class ground_truth were reported as class predicted"""
+
+#获取混淆矩阵
+  def get_confusion_matrix(self):
+    return self.confusion_matrix
+#返回64位浮点数列表
+  """returns list of 64-bit floats"""
+
+
+# get_inersection_union_per_class函数，返回值为矩阵对角线的值与“该矩阵对角线值对应行和列所有值之和”的比值矩阵，类型为float类型
+  def get_intersection_union_per_class(self):
+    matrix_diagonal = [self.confusion_matrix[i][i] for i in range(self.number_of_labels)]#取矩阵对角线上的值
+    errors_summed_by_row = [0] * self.number_of_labels    #求矩阵每一行中row与column不等的值得集合
+    for row in range(self.number_of_labels):              #errors_summed_by_row[row]=E confusion_matrix[row][column]
+      for column in range(self.number_of_labels):         #row与column不等
+        if row != column:
+          errors_summed_by_row[row] += self.confusion_matrix[row][column]
+    errors_summed_by_column = [0] * self.number_of_labels  #求矩阵每一列中row与column不等的值的集合
+    for column in range(self.number_of_labels):
+      for row in range(self.number_of_labels):
+        if row != column:
+          errors_summed_by_column[column] += self.confusion_matrix[row][column]
+
+#divisor为矩阵对角线对应的行和列的所有值之和
+    divisor = [0] * self.number_of_labels
+    for i in range(self.number_of_labels):
+      divisor[i] = matrix_diagonal[i] + errors_summed_by_row[i] + errors_summed_by_column[i]
+      if matrix_diagonal[i] == 0:
+        divisor[i] = 1
+
+#返回值为矩阵对角线的值与divisor对应值的比值矩阵，类型为float类型
+    return [float(matrix_diagonal[i]) / divisor[i] for i in range(self.number_of_labels)]
+  """returns 64-bit float"""
+
+
+# get_overall_accuracy函数，返回矩阵对角线上所有值的和与矩阵所有值的比值
+  def get_overall_accuracy(self):
+    matrix_diagonal = 0  #矩阵对角线
+    all_values = 0       #所有值
+    for row in range(self.number_of_labels):  #循环求矩阵所有值的和以及对角线上所有值的和
+      for column in range(self.number_of_labels):
+        all_values += self.confusion_matrix[row][column]
+        if row == column:
+          matrix_diagonal += self.confusion_matrix[row][column]
+    if all_values == 0:
+      all_values = 1
+    return float(matrix_diagonal) / all_values  #返回矩阵对角线所有值之和与矩阵所有值之和的比值
+
+
+  def get_average_intersection_union(self):
+    values = self.get_intersection_union_per_class()
+    class_seen = ((self.confusion_matrix.sum(1)+self.confusion_matrix.sum(0))!=0).sum()
+    return sum(values)/class_seen
+
+
+#get_mean_class_accuracy函数，返回 “每一行对角线上的值与 “该行的所有值的和与1中的较大值” 的比值” 的和除以矩阵值的总数的商
+  def get_mean_class_accuracy(self):  # added
+    re = 0
+    #max取该行的所有值的和与1中的较大值
+    #求得re为 “每一行对角线上的值与这个较大值的比值” 的和
+    for i in range(self.number_of_labels):
+        re = re + self.confusion_matrix[i][i] / max(1,np.sum(self.confusion_matrix[i,:]))
+    return re/self.number_of_labels #返回re除以矩阵值的总数的商
+
+
+  # def build_conf_matrix_from_file(self, ground_truth_file, classified_file):
+  #   #read line by line without storing everything in ram
+  #   with open(ground_truth_file, "r") as f_gt, open(classified_file, "r") as f_cl:
+  #     for index, (line_gt, line_cl) in enumerate(izip(f_gt, f_cl)):
+  #        label_gt = int(line_gt))
+  #        label_cl_ = int(line_cl))
+  #        label_cl = max([min([label_cl_, 10000]), 1]) #protection against erroneous submissions: no infinite labels (for instance NaN) or classes smaller 1
+  #        if label_cl_ != label_cl:
+  #            return -1
+  #        max_label = max([label_gt, label_cl])
+  #        if max_label > self.number_of_labels:
+  #           #resize to larger confusion matrix
+  #           b = np.zeros((max_label,max_label))
+  #           for row in range(self.number_of_labels):
+  #             for column in range(self.number_of_labels):
+  #                b[row][column] = self.confusion_matrix[row][column]
+  #           self.confusion_matrix = b
+  #           self.number_of_labels = max_label
+  #
+  #        if label_gt == 0:
+  #           continue
+  #        self.confusion_matrix[label_gt - 1][label_cl - 1] += 1
+  #        return 0
